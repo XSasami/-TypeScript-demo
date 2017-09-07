@@ -1,0 +1,148 @@
+<html>
+  <head>
+	  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <title>i5ting_ztree_toc:开发笔记</title>
+		<link href="toc/style/github-bf51422f4bb36427d391e4b75a1daa083c2d840e.css" media="all" rel="stylesheet" type="text/css"/>
+		<link href="toc/style/github2-d731afd4f624c99a4b19ad69f3083cd6d02b81d5.css" media="all" rel="stylesheet" type="text/css"/>
+		<link href="toc/css/zTreeStyle/zTreeStyle.css" media="all" rel="stylesheet" type="text/css"/>
+	  <style>
+		pre {
+		    counter-reset: line-numbering;
+		    border: solid 1px #d9d9d9;
+		    border-radius: 0;
+		    background: #fff;
+		    padding: 0;
+		    line-height: 23px;
+		    margin-bottom: 30px;
+		    white-space: pre;
+		    overflow-x: auto;
+		    word-break: inherit;
+		    word-wrap: inherit;
+		}
+
+		pre a::before {
+		  content: counter(line-numbering);
+		  counter-increment: line-numbering;
+		  padding-right: 1em; /* space after numbers */
+		  width: 25px;
+		  text-align: right;
+		  opacity: 0.7;
+		  display: inline-block;
+		  color: #aaa;
+		  background: #eee;
+		  margin-right: 16px;
+		  padding: 2px 10px;
+		  font-size: 13px;
+		  -webkit-touch-callout: none;
+		  -webkit-user-select: none;
+		  -khtml-user-select: none;
+		  -moz-user-select: none;
+		  -ms-user-select: none;
+		  user-select: none;
+		}
+
+		pre a:first-of-type::before {
+		  padding-top: 10px;
+		}
+
+		pre a:last-of-type::before {
+		  padding-bottom: 10px;
+		}
+
+		pre a:only-of-type::before {
+		  padding: 10px;
+		}
+
+		.highlight { background-color: #ffffcc } /* RIGHT */
+		</style>
+  </head>
+  <body>
+	  <div>
+				<div style='width:25%;'>
+						<ul id="tree" class="ztree" style='width:100%'>
+
+						</ul>
+				</div>
+        <div id='readme' style='width:70%;margin-left:20%;'>
+          	<article class='markdown-body'>
+            	<h2 id="-typescript-">使用TypeScript开发遇到的问题</h2>
+<h3 id="-on-">使用 on + &#39;事件名&#39; 的方式绑定事件，编译失败了，以下是错误信息：</h3>
+<pre><code>error TS2339: Property &#39;onclick&#39; does not exist on type &#39;Element&#39;.
+
+意思是：onclick属性不存在于Element类型上
+
+因为我们使用TypeScript进行元素的获取的时候，需要进行类型的强转。
+所以我们要这样写：
+
+var addBtn = &lt;HTMLElement&gt;document.querySelector(&quot;.addBtn&quot;);
+</code></pre><h3 id="-">我对于拖动案例的开发思路是：事件的嵌套。</h3>
+<pre><code>container.addEventListener(&#39;mousedown&#39;, function(){
+    do something...
+    document.addEventListener(&#39;mousemove&#39;, function(){
+        do something...
+    })
+})
+
+以上代码是我以前的编写方式，它存在两个问题：
+*函数的嵌套容易造成闭包的问题，就是内存的泄漏；
+*使用匿名函数的方式放在addEventListener上就写死了，代码的复用性很低。
+
+因此我换了一种思路：
+把事件的绑定全部放在全局里面，再通过变量flag控制事件里面的代码执行时机。
+
+container.addEventListener(&#39;mousedown&#39;, catchBall);
+document.addEventListener(&#39;mousemove&#39;, moveBall);
+function catchBall(e: MouseEvent){
+    tarEle = e.target;
+    if(tarEle &amp;&amp; tarEle !== container){ // 当获取到目标元素，并且不是容器时
+        flag = true;
+    }
+}
+function moveBall(e: MouseEvent){
+    if(flag){
+        do something;
+    }
+}
+
+绑在document上面的mousemove会一直被触发（如果不绑在document上，会出现抓不住元素的情况），  
+但因为flag=false，所以里面的代码并不会执行，但当我们触发mousedown并且抓到目标元素之后，flag就会被赋值为true，触发mousemove事件的代码。
+</code></pre><h3 id="-">我们需要获取目标元素的宽度，用来设置目标元素可以移动的最大界限，但是出现了问题：</h3>
+<pre><code>tarEle: object = null;
+tarEle = e.target;
+tarEle.offsetWidth // error TS2339: Property &#39;offsetWidth&#39; does not exist on type &#39;object&#39;.
+
+这时候我把tarEle的类型声明删掉就可以了，当我们不知道变量该是什么类型的时候就不要去声明类型
+</code></pre><h3 id="-">随机数的取整，出现了问题：</h3>
+<pre><code>parseInt(Math.random() * 5); 
+// error TS2345: Argument of type &#39;number&#39; is not assignable to parameter of type &#39;string&#39;.
+
+这是因为传入parseInt()里面的参数必须是字符串，而Math.random() * 5的值是number类型的，当然会报错啦
+因此我只能使用Math.ceil()来取整，又或者把随机得出来的结果加上&#39;&#39;转成字符串了。
+但有个要注意的地方：
+如果使用Math.ceil()来取整，这个函数是向上取整，我们只能取到1~5之间的数，取不到0。因此，枚举的颜色的index就要改变，从1开始。
+而parseInt()是向下取整，只能取到0~4，所以使用enum刚刚好，index也不需要改变，因为枚举的index就是从0开始的。
+</code></pre><h3 id="-">最后，我觉得我的全局变量有点多了</h3>
+<pre><code>我认为使用对象来管理变量比较妥当，这样暴露出来的变量就变成只有一个了。
+但是，使用对象之后如何对变量的值进行声明类型呢？ 这个我还在学习中。。。就连我现在写的这个md文件也在学习中
+</code></pre>
+          	</article>
+        </div>
+		</div>
+  </body>
+</html>
+<script type="text/javascript" src="toc/js/jquery-1.4.4.min.js"></script>
+<script type="text/javascript" src="toc/js/jquery.ztree.all-3.5.min.js"></script>
+<script type="text/javascript" src="toc/js/ztree_toc.js"></script>
+<script type="text/javascript" src="toc_conf.js"></script>
+
+<SCRIPT type="text/javascript" >
+<!--
+$(document).ready(function(){
+    var css_conf = eval(markdown_panel_style);
+    $('#readme').css(css_conf)
+    
+    var conf = eval(jquery_ztree_toc_opts);
+		$('#tree').ztree_toc(conf);
+});
+//-->
+</SCRIPT>
